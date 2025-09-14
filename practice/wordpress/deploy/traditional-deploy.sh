@@ -215,6 +215,37 @@ EOF
         sudo systemctl reload apache2
         
         print_status "Virtual host created for $DOMAIN"
+    else
+        print_status "No domain provided, configuring for local access..."
+        
+        # Get server IP address
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+        
+        # Create virtual host for IP access
+        sudo tee /etc/apache2/sites-available/wordpress.conf > /dev/null <<EOF
+<VirtualHost *:80>
+    ServerName $SERVER_IP
+    DocumentRoot /var/www/html/wordpress
+    
+    <Directory /var/www/html/wordpress>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog \${APACHE_LOG_DIR}/wordpress_error.log
+    CustomLog \${APACHE_LOG_DIR}/wordpress_access.log combined
+</VirtualHost>
+EOF
+
+        # Enable site
+        sudo a2ensite wordpress.conf
+        sudo a2dissite 000-default.conf
+        sudo systemctl reload apache2
+        
+        # Update DOMAIN variable for later use
+        DOMAIN="$SERVER_IP"
+        
+        print_status "Virtual host created for IP access: $SERVER_IP"
     fi
 }
 
@@ -271,12 +302,22 @@ complete_wordpress_setup() {
     
     # Set default email if not provided
     if [[ -z "$WP_ADMIN_EMAIL" ]]; then
-        WP_ADMIN_EMAIL="admin@$DOMAIN"
+        if [[ -n "$DOMAIN" ]]; then
+            WP_ADMIN_EMAIL="admin@$DOMAIN"
+        else
+            WP_ADMIN_EMAIL="admin@localhost"
+        fi
     fi
     
     # Install WordPress via WP-CLI
+    if [[ -n "$DOMAIN" ]]; then
+        WP_URL="http://$DOMAIN"
+    else
+        WP_URL="http://$(hostname -I | awk '{print $1}')"
+    fi
+    
     sudo -u www-data wp core install \
-        --url="http://$DOMAIN" \
+        --url="$WP_URL" \
         --title="$WP_TITLE" \
         --admin_user="$WP_ADMIN_USER" \
         --admin_password="$WP_ADMIN_PASS" \
@@ -293,8 +334,15 @@ display_final_info() {
     echo "=========================================="
     echo "WordPress Installation Details:"
     echo "=========================================="
-    echo "Site URL: http://$DOMAIN"
-    echo "Admin URL: http://$DOMAIN/wp-admin"
+    if [[ -n "$DOMAIN" ]]; then
+        echo "Site URL: http://$DOMAIN"
+        echo "Admin URL: http://$DOMAIN/wp-admin"
+    else
+        SERVER_IP=$(hostname -I | awk '{print $1}')
+        echo "Site URL: http://$SERVER_IP"
+        echo "Admin URL: http://$SERVER_IP/wp-admin"
+        echo "Note: Accessing via IP address. Consider setting up a domain name."
+    fi
     echo "Admin Username: $WP_ADMIN_USER"
     echo "Admin Password: $WP_ADMIN_PASS"
     echo "Admin Email: $WP_ADMIN_EMAIL"
@@ -309,7 +357,11 @@ display_final_info() {
     echo "=========================================="
     echo
     print_warning "Please save the above information securely!"
-    print_warning "Consider setting up SSL certificate for production use."
+    if [[ -z "$DOMAIN" ]]; then
+        print_warning "For production use, consider setting up a domain name and SSL certificate."
+    else
+        print_warning "Consider setting up SSL certificate for production use."
+    fi
 }
 
 # Main execution
@@ -319,7 +371,7 @@ main() {
     echo
     
     # Get user input
-    read -p "Enter your domain name (e.g., example.com): " DOMAIN
+    read -p "Enter your domain name (e.g., example.com) or press Enter for IP access: " DOMAIN
     read -p "Enter WordPress admin username [admin]: " WP_ADMIN_USER
     WP_ADMIN_USER=${WP_ADMIN_USER:-admin}
     read -s -p "Enter WordPress admin password (leave empty for auto-generated): " WP_ADMIN_PASS
@@ -330,8 +382,7 @@ main() {
     
     # Validate inputs
     if [[ -z "$DOMAIN" ]]; then
-        print_error "Domain name is required"
-        exit 1
+        print_warning "No domain provided, will use server IP address for access"
     fi
     
     if [[ -z "$WP_ADMIN_EMAIL" ]]; then
