@@ -55,13 +55,13 @@ check_docker() {
 # Function to generate random passwords
 generate_passwords() {
     if [[ -z "$DB_PASSWORD" ]]; then
-        DB_PASSWORD=$(openssl rand -base64 32)
-        print_status "Generated database password: $DB_PASSWORD"
+        DB_PASSWORD="wordpress123"
+        print_status "Using database password: $DB_PASSWORD"
     fi
     
     if [[ -z "$WP_ADMIN_PASS" ]]; then
-        WP_ADMIN_PASS=$(openssl rand -base64 16)
-        print_status "Generated WordPress admin password: $WP_ADMIN_PASS"
+        WP_ADMIN_PASS="admin123"
+        print_status "Using WordPress admin password: $WP_ADMIN_PASS"
     fi
 }
 
@@ -89,7 +89,8 @@ services:
       - wordpress_data:/var/www/html
       - ./config/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - wordpress_network
 EOF
@@ -124,7 +125,8 @@ EOF
       PMA_USER: wordpress
       PMA_PASSWORD: ${DB_PASSWORD}
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - wordpress_network
 EOF
@@ -147,6 +149,10 @@ EOF
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - wordpress_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      timeout: 20s
+      retries: 10
 
 volumes:
   wordpress_data:
