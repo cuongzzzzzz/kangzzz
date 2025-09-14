@@ -247,9 +247,8 @@ install_wp_cli() {
     print_status "Installing WP-CLI..."
     
     cd /tmp
-    curl -O https://raw.githubusercontent.com/wp-cli/wp-cli/gh-pages/installer/install-wp-cli.sh
-    chmod +x install-wp-cli.sh
-    ./install-wp-cli.sh
+    curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    chmod +x wp-cli.phar
     
     # Move to system path
     sudo mv wp-cli.phar /usr/local/bin/wp

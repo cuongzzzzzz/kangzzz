@@ -425,7 +425,7 @@ complete_wordpress_setup() {
     sleep 10
     
     # Install WP-CLI in the WordPress container
-    docker-compose exec wordpress bash -c "curl -O https://raw.githubusercontent.com/wp-cli/wp-cli/gh-pages/installer/install-wp-cli.sh && chmod +x install-wp-cli.sh && ./install-wp-cli.sh"
+    docker-compose exec wordpress bash -c "curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar && chmod +x wp-cli.phar && mv wp-cli.phar /usr/local/bin/wp"
     
     # Complete WordPress installation
     docker-compose exec wordpress wp core install \
