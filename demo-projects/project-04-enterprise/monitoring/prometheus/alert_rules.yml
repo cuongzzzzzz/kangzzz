@@ -1,0 +1,123 @@
+# Enterprise Alert Rules
+groups:
+  - name: enterprise.rules
+    rules:
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: 100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 80% for more than 5 minutes on {{ $labels.instance }}"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes) / node_memory_MemTotal_bytes * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 85% for more than 5 minutes on {{ $labels.instance }}"
+
+      # Disk Space Low
+      - alert: DiskSpaceLow
+        expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes * 100) < 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space is running low"
+          description: "Disk space is below 10% on {{ $labels.instance }} mount {{ $labels.mountpoint }}"
+
+      # Service Down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time detected"
+          description: "95th percentile response time is above 1 second for {{ $labels.job }}"
+
+      # Database Connection Issues
+      - alert: DatabaseConnectionFailed
+        expr: postgres_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection failed"
+          description: "PostgreSQL database is not accessible on {{ $labels.instance }}"
+
+      # Redis Connection Issues
+      - alert: RedisConnectionFailed
+        expr: redis_up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis connection failed"
+          description: "Redis cache is not accessible on {{ $labels.instance }}"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m]) * 100 > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is above 5% for {{ $labels.job }} on {{ $labels.instance }}"
+
+      # Load Balancer Backend Down
+      - alert: LoadBalancerBackendDown
+        expr: haproxy_backend_servers{state="DOWN"} > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Load balancer backend is down"
+          description: "Backend server {{ $labels.server }} in {{ $labels.backend }} is down"
+
+      # Queue Size Too High
+      - alert: QueueSizeTooHigh
+        expr: rabbitmq_queue_messages > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Message queue size is too high"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages"
+
+      # Elasticsearch Cluster Health
+      - alert: ElasticsearchClusterRed
+        expr: elasticsearch_cluster_health_status{color="red"} == 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Elasticsearch cluster is in red state"
+          description: "Elasticsearch cluster health is red on {{ $labels.instance }}"
+
+      # High Number of Connections
+      - alert: HighConnectionCount
+        expr: haproxy_current_sessions > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of active connections"
+          description: "HAProxy has {{ $value }} active connections on {{ $labels.instance }}"

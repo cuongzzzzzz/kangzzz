@@ -1,0 +1,80 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: microservices
+  labels:
+    app: product-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+      - name: product-service
+        image: product-service:latest
+        ports:
+        - containerPort: 5000
+        env:
+        - name: FLASK_ENV
+          value: "production"
+        - name: MONGODB_HOST
+          value: "mongodb-service"
+        - name: MONGODB_PORT
+          value: "27017"
+        - name: MONGODB_DB
+          value: "products"
+        - name: MONGODB_USER
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: mongodb-user
+        - name: MONGODB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: database-secrets
+              key: mongodb-password
+        - name: REDIS_HOST
+          value: "redis-service"
+        - name: REDIS_PORT
+          value: "6379"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: microservices
+  labels:
+    app: product-service
+spec:
+  selector:
+    app: product-service
+  ports:
+  - port: 5000
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP

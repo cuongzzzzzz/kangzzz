@@ -1,0 +1,193 @@
+version: '3.8'
+
+# Production WordPress Docker Compose Configuration
+# This configuration is optimized for production deployment
+
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD}
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 0
+      WORDPRESS_CONFIG_EXTRA: |
+        define('WP_REDIS_HOST', 'redis');
+        define('WP_REDIS_PORT', 6379);
+        define('WP_REDIS_DATABASE', 0);
+        define('WP_CACHE', true);
+        define('DISALLOW_FILE_EDIT', true);
+        define('WP_DEBUG', false);
+        define('WP_DEBUG_LOG', false);
+        define('WP_DEBUG_DISPLAY', false);
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./config/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+      - ./config/php.ini:/usr/local/etc/php/conf.d/wordpress.ini
+      - ./ssl:/etc/ssl/certs
+      - ./logs:/var/log/apache2
+    depends_on:
+      - db
+      - redis
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.wordpress.rule=Host(`your-domain.com`)"
+      - "traefik.http.routers.wordpress.entrypoints=websecure"
+      - "traefik.http.routers.wordpress.tls.certresolver=letsencrypt"
+
+  db:
+    image: mysql:8.0
+    container_name: wordpress_db_prod
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./database/my.cnf:/etc/mysql/conf.d/my.cnf
+      - ./backups:/backups
+    networks:
+      - wordpress_network
+    command: --default-authentication-plugin=mysql_native_password
+    labels:
+      - "traefik.enable=false"
+
+  redis:
+    image: redis:7-alpine
+    container_name: wordpress_redis_prod
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=false"
+
+  nginx:
+    image: nginx:alpine
+    container_name: wordpress_nginx_prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./ssl:/etc/nginx/ssl
+      - wordpress_data:/var/www/html
+      - ./logs/nginx:/var/log/nginx
+    depends_on:
+      - wordpress
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=false"
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: wordpress_phpmyadmin_prod
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_USER: wordpress
+      PMA_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - ./phpmyadmin/config.inc.php:/etc/phpmyadmin/config.inc.php
+    depends_on:
+      - db
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.phpmyadmin.rule=Host(`phpmyadmin.your-domain.com`)"
+      - "traefik.http.routers.phpmyadmin.entrypoints=websecure"
+      - "traefik.http.routers.phpmyadmin.tls.certresolver=letsencrypt"
+
+  backup:
+    image: mysql:8.0
+    container_name: wordpress_backup
+    restart: "no"
+    environment:
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - ./backups:/backups
+      - ./scripts/backup.sh:/backup.sh
+    depends_on:
+      - db
+    networks:
+      - wordpress_network
+    command: /bin/bash -c "while true; do /backup.sh; sleep 86400; done"
+    labels:
+      - "traefik.enable=false"
+
+  monitoring:
+    image: prom/prometheus
+    container_name: wordpress_prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/rules:/etc/prometheus/rules
+      - prometheus_data:/prometheus
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prometheus.rule=Host(`monitoring.your-domain.com`)"
+      - "traefik.http.routers.prometheus.entrypoints=websecure"
+      - "traefik.http.routers.prometheus.tls.certresolver=letsencrypt"
+
+  grafana:
+    image: grafana/grafana
+    container_name: wordpress_grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - monitoring
+    networks:
+      - wordpress_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.grafana.rule=Host(`grafana.your-domain.com`)"
+      - "traefik.http.routers.grafana.entrypoints=websecure"
+      - "traefik.http.routers.grafana.tls.certresolver=letsencrypt"
+
+volumes:
+  wordpress_data:
+    driver: local
+  db_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  wordpress_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

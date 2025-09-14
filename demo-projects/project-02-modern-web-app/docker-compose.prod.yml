@@ -1,0 +1,206 @@
+version: '3.8'
+
+services:
+  # Frontend - React Application (Production)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: modern-webapp-frontend-prod
+    ports:
+      - "3000:80"
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=https://api.your-domain.com
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Backend - Node.js API (Production)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: modern-webapp-backend-prod
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./logs/backend:/app/logs
+      - ./uploads:/app/uploads
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/modernwebapp
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASS=${SMTP_PASS}
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Database - MongoDB (Production)
+  mongodb:
+    image: mongo:6.0
+    container_name: modern-webapp-mongodb-prod
+    volumes:
+      - mongodb_data:/data/db
+      - ./database/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./logs/mongodb:/var/log/mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=modernwebapp
+    networks:
+      - webapp-network
+    restart: unless-stopped
+    command: mongod --replSet rs0
+
+  # Cache - Redis (Production)
+  redis:
+    image: redis:7-alpine
+    container_name: modern-webapp-redis-prod
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Load Balancer - Nginx (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: modern-webapp-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Monitoring - Prometheus (Production)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: modern-webapp-prometheus-prod
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Monitoring - Grafana (Production)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: modern-webapp-grafana-prod
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=monitoring.your-domain.com
+    depends_on:
+      - prometheus
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Log Aggregation - ELK Stack
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: modern-webapp-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.8.0
+    container_name: modern-webapp-logstash
+    volumes:
+      - ./monitoring/logstash/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.8.0
+    container_name: modern-webapp-kibana
+    ports:
+      - "5601:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  # Backup Service
+  backup:
+    image: alpine:latest
+    container_name: modern-webapp-backup
+    volumes:
+      - ./backup:/backup
+      - mongodb_data:/data/mongodb:ro
+      - redis_data:/data/redis:ro
+    command: |
+      sh -c "
+        apk add --no-cache mongodb-tools redis &&
+        while true; do
+          echo 'Starting backup...' &&
+          mongodump --host mongodb --db modernwebapp --out /backup/mongodb/$$(date +%Y%m%d_%H%M%S) &&
+          redis-cli -h redis --rdb /backup/redis/$$(date +%Y%m%d_%H%M%S).rdb &&
+          find /backup -type d -mtime +7 -exec rm -rf {} + &&
+          sleep 86400
+        done
+      "
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  elasticsearch_data:
+    driver: local
+
+networks:
+  webapp-network:
+    driver: bridge

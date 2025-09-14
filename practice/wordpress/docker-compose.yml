@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress_wordpress
+    restart: unless-stopped
+    platform: linux/arm64
+    ports:
+      - "8080:80"
+    environment:
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: /uhDsvlfWZuxQyFHEfZoX40TdDrHz4Fqfx+WoRmKB+o=
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_DEBUG: 0
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./config/uploads.ini:/usr/local/etc/php/conf.d/uploads.ini
+    depends_on:
+      - db
+    networks:
+      - wordpress_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: wordpress_redis
+    restart: unless-stopped
+    platform: linux/arm64
+    volumes:
+      - redis_data:/data
+    networks:
+      - wordpress_network
+
+  db:
+    image: mysql:8.0
+    container_name: wordpress_db
+    restart: unless-stopped
+    platform: linux/arm64
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: /uhDsvlfWZuxQyFHEfZoX40TdDrHz4Fqfx+WoRmKB+o=
+      MYSQL_ROOT_PASSWORD: /uhDsvlfWZuxQyFHEfZoX40TdDrHz4Fqfx+WoRmKB+o=
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - wordpress_network
+
+volumes:
+  wordpress_data:
+  db_data:
+  redis_data:
+
+networks:
+  wordpress_network:
+    driver: bridge

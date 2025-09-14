@@ -1,0 +1,99 @@
+# Enterprise Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'enterprise'
+    replica: 'prometheus-1'
+
+rule_files:
+  - "alert_rules.yml"
+  - "recording_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - enterprise-alertmanager:9093
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    metrics_path: /metrics
+
+  # HAProxy
+  - job_name: 'haproxy'
+    static_configs:
+      - targets: ['enterprise-haproxy:8404']
+    scrape_interval: 30s
+    metrics_path: /stats
+    params:
+      stats: ['']
+
+  # Web Servers
+  - job_name: 'web-servers'
+    static_configs:
+      - targets:
+        - 'enterprise-web1:80'
+        - 'enterprise-web2:80'
+        - 'enterprise-web3:80'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # API Servers
+  - job_name: 'api-servers'
+    static_configs:
+      - targets:
+        - 'enterprise-api1:3000'
+        - 'enterprise-api2:3000'
+        - 'enterprise-api3:3000'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Admin Servers
+  - job_name: 'admin-servers'
+    static_configs:
+      - targets:
+        - 'enterprise-admin1:8080'
+        - 'enterprise-admin2:8080'
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # Elasticsearch
+  - job_name: 'elasticsearch'
+    static_configs:
+      - targets: ['elasticsearch-exporter:9114']
+    scrape_interval: 30s
+
+  # RabbitMQ
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['rabbitmq-exporter:9419']
+    scrape_interval: 30s
+
+  # Node Exporter (if available)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Docker containers
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker-exporter:9323']
+    scrape_interval: 30s

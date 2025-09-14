@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: microservices
+  labels:
+    app: api-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+      - name: kong
+        image: kong:3.0
+        ports:
+        - containerPort: 8000
+          name: proxy
+        - containerPort: 8001
+          name: admin
+        env:
+        - name: KONG_DATABASE
+          value: "off"
+        - name: KONG_DECLARATIVE_CONFIG
+          value: "/kong/declarative/kong.yml"
+        - name: KONG_PROXY_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_ADMIN_ACCESS_LOG
+          value: "/dev/stdout"
+        - name: KONG_PROXY_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_ERROR_LOG
+          value: "/dev/stderr"
+        - name: KONG_ADMIN_LISTEN
+          value: "0.0.0.0:8001"
+        - name: KONG_PROXY_LISTEN
+          value: "0.0.0.0:8000"
+        - name: KONG_LOG_LEVEL
+          value: "info"
+        volumeMounts:
+        - name: kong-config
+          mountPath: /kong/declarative
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /status
+            port: 8001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /status
+            port: 8001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: kong-config
+        configMap:
+          name: kong-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: microservices
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - name: proxy
+    port: 8000
+    targetPort: 8000
+    protocol: TCP
+  - name: admin
+    port: 8001
+    targetPort: 8001
+    protocol: TCP
+  type: ClusterIP

@@ -1,0 +1,354 @@
+version: '3.8'
+
+services:
+  # API Gateway - Kong
+  api-gateway:
+    image: kong:3.0
+    container_name: microservices-api-gateway
+    ports:
+      - "8000:8000"  # Proxy port
+      - "8001:8001"  # Admin API port
+    environment:
+      - KONG_DATABASE=off
+      - KONG_DECLARATIVE_CONFIG=/kong/declarative/kong.yml
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+    volumes:
+      - ./kong/kong.yml:/kong/declarative/kong.yml:ro
+      - ./logs/kong:/var/log/kong
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # User Service - Node.js
+  user-service:
+    build:
+      context: ./microservices/user-service
+      dockerfile: Dockerfile
+    container_name: microservices-user-service
+    ports:
+      - "3001:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=users
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Product Service - Python
+  product-service:
+    build:
+      context: ./microservices/product-service
+      dockerfile: Dockerfile
+    container_name: microservices-product-service
+    ports:
+      - "5001:5000"
+    environment:
+      - FLASK_ENV=production
+      - MONGODB_HOST=mongodb
+      - MONGODB_PORT=27017
+      - MONGODB_DB=products
+      - MONGODB_USER=root
+      - MONGODB_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Order Service - Go
+  order-service:
+    build:
+      context: ./microservices/order-service
+      dockerfile: Dockerfile
+    container_name: microservices-order-service
+    ports:
+      - "5002:5000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=orders
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Payment Service - Java
+  payment-service:
+    build:
+      context: ./microservices/payment-service
+      dockerfile: Dockerfile
+    container_name: microservices-payment-service
+    ports:
+      - "8081:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=production
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=payments
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Notification Service - Go
+  notification-service:
+    build:
+      context: ./microservices/notification-service
+      dockerfile: Dockerfile
+    container_name: microservices-notification-service
+    ports:
+      - "3002:3000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=notifications
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=your-email@gmail.com
+      - SMTP_PASS=your-app-password
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Analytics Service - Python
+  analytics-service:
+    build:
+      context: ./microservices/analytics-service
+      dockerfile: Dockerfile
+    container_name: microservices-analytics-service
+    ports:
+      - "8001:8000"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=analytics
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: microservices-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_MULTIPLE_DATABASES=users,orders,payments,notifications,analytics
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init-postgres.sql:/docker-entrypoint-initdb.d/init-postgres.sql:ro
+      - ./logs/postgres:/var/log/postgresql
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: microservices-mongodb
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    volumes:
+      - mongodb_data:/data/db
+      - ./database/init-mongodb.js:/docker-entrypoint-initdb.d/init-mongodb.js:ro
+      - ./logs/mongodb:/var/log/mongodb
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: microservices-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: redis-server /usr/local/etc/redis/redis.conf
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring - Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: microservices-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # Monitoring - Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: microservices-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin123
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel
+    depends_on:
+      - prometheus
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # Monitoring - Jaeger
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: microservices-jaeger
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+  # Load Balancer - Nginx
+  nginx:
+    image: nginx:alpine
+    container_name: microservices-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./logs/nginx:/var/log/nginx
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-gateway
+    networks:
+      - microservices-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  microservices-network:
+    driver: bridge

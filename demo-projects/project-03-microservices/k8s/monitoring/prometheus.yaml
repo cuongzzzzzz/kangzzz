@@ -1,0 +1,249 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: microservices
+  labels:
+    app: prometheus
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+        args:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.console.libraries=/etc/prometheus/console_libraries'
+        - '--web.console.templates=/etc/prometheus/consoles'
+        - '--storage.tsdb.retention.time=200h'
+        - '--web.enable-lifecycle'
+        - '--web.enable-admin-api'
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-data
+          mountPath: /prometheus
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /-/healthy
+            port: 9090
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /-/ready
+            port: 9090
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-data
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: microservices
+  labels:
+    app: prometheus
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: microservices
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'microservices-demo'
+        environment: 'development'
+
+    rule_files:
+      - "alert_rules.yml"
+
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets:
+              - alertmanager:9093
+
+    scrape_configs:
+      # Prometheus itself
+      - job_name: 'prometheus'
+        static_configs:
+          - targets: ['localhost:9090']
+
+      # Kong API Gateway
+      - job_name: 'kong'
+        static_configs:
+          - targets: ['api-gateway:8001']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # User Service
+      - job_name: 'user-service'
+        static_configs:
+          - targets: ['user-service:3000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # Product Service
+      - job_name: 'product-service'
+        static_configs:
+          - targets: ['product-service:5000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # Order Service
+      - job_name: 'order-service'
+        static_configs:
+          - targets: ['order-service:5000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # Payment Service
+      - job_name: 'payment-service'
+        static_configs:
+          - targets: ['payment-service:8080']
+        metrics_path: '/actuator/prometheus'
+        scrape_interval: 30s
+
+      # Notification Service
+      - job_name: 'notification-service'
+        static_configs:
+          - targets: ['notification-service:3000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # Analytics Service
+      - job_name: 'analytics-service'
+        static_configs:
+          - targets: ['analytics-service:8000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+
+      # PostgreSQL
+      - job_name: 'postgres'
+        static_configs:
+          - targets: ['postgres:5432']
+        scrape_interval: 30s
+
+      # MongoDB
+      - job_name: 'mongodb'
+        static_configs:
+          - targets: ['mongodb:27017']
+        scrape_interval: 30s
+
+      # Redis
+      - job_name: 'redis'
+        static_configs:
+          - targets: ['redis:6379']
+        scrape_interval: 30s
+
+  alert_rules.yml: |
+    groups:
+      - name: microservices
+        rules:
+          # High error rate
+          - alert: HighErrorRate
+            expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High error rate detected"
+              description: "Service {{ $labels.service }} has error rate of {{ $value }} errors per second"
+
+          # High response time
+          - alert: HighResponseTime
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+            for: 2m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High response time detected"
+              description: "Service {{ $labels.service }} has 95th percentile response time of {{ $value }} seconds"
+
+          # Service down
+          - alert: ServiceDown
+            expr: up == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Service is down"
+              description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+          # High memory usage
+          - alert: HighMemoryUsage
+            expr: (process_resident_memory_bytes / 1024 / 1024) > 1000
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High memory usage"
+              description: "Service {{ $labels.job }} is using {{ $value }} MB of memory"
+
+          # High CPU usage
+          - alert: HighCPUUsage
+            expr: rate(process_cpu_seconds_total[5m]) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+            annotations:
+              summary: "High CPU usage"
+              description: "Service {{ $labels.job }} has CPU usage of {{ $value }}"
+
+          # Database connection issues
+          - alert: DatabaseConnectionFailed
+            expr: up{job=~"postgres|mongodb|redis"} == 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Database connection failed"
+              description: "Database {{ $labels.job }} is not responding"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-pvc
+  namespace: microservices
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

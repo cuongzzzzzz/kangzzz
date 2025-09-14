@@ -1,0 +1,328 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: microservices
+data:
+  kong.yml: |
+    _format_version: "3.0"
+
+    services:
+      - name: user-service
+        url: http://user-service:3000
+        routes:
+          - name: user-routes
+            paths:
+              - /api/users
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: user-service"
+                  - "X-Version: 1.0.0"
+
+      - name: product-service
+        url: http://product-service:5000
+        routes:
+          - name: product-routes
+            paths:
+              - /api/products
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: product-service"
+                  - "X-Version: 1.0.0"
+
+      - name: order-service
+        url: http://order-service:5000
+        routes:
+          - name: order-routes
+            paths:
+              - /api/orders
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: order-service"
+                  - "X-Version: 1.0.0"
+
+      - name: payment-service
+        url: http://payment-service:8080
+        routes:
+          - name: payment-routes
+            paths:
+              - /api/payments
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 50
+              hour: 500
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: payment-service"
+                  - "X-Version: 1.0.0"
+
+      - name: notification-service
+        url: http://notification-service:3000
+        routes:
+          - name: notification-routes
+            paths:
+              - /api/notifications
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: notification-service"
+                  - "X-Version: 1.0.0"
+
+      - name: analytics-service
+        url: http://analytics-service:8000
+        routes:
+          - name: analytics-routes
+            paths:
+              - /api/analytics
+            methods:
+              - GET
+              - POST
+              - PUT
+              - DELETE
+            strip_path: false
+        plugins:
+          - name: cors
+            config:
+              origins:
+                - "*"
+              methods:
+                - GET
+                - POST
+                - PUT
+                - DELETE
+                - OPTIONS
+              headers:
+                - Accept
+                - Accept-Version
+                - Content-Length
+                - Content-MD5
+                - Content-Type
+                - Date
+                - X-Auth-Token
+              exposed_headers:
+                - X-Auth-Token
+              credentials: true
+              max_age: 3600
+          - name: rate-limiting
+            config:
+              minute: 100
+              hour: 1000
+              policy: local
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 10
+          - name: response-transformer
+            config:
+              add:
+                headers:
+                  - "X-Service: analytics-service"
+                  - "X-Version: 1.0.0"
+
+    # Global plugins
+    plugins:
+      - name: prometheus
+        config:
+          per_consumer: true
+          status_code_metrics: true
+          latency_metrics: true
+          bandwidth_metrics: true
+          upstream_health_metrics: true
+      - name: correlation-id
+        config:
+          header_name: "X-Correlation-ID"
+          generator: "uuid"
+          echo_downstream: true
+      - name: request-id
+        config:
+          header_name: "X-Request-ID"
+          echo_downstream: true

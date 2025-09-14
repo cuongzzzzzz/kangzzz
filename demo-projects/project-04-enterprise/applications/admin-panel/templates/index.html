@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Admin Panel</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .login-form {
+            max-width: 400px;
+            margin: 4rem auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2c3e50;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 0.8rem;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .btn:hover {
+            background: #2980b9;
+        }
+
+        .dashboard {
+            display: none;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #3498db;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+
+        .section {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+
+        .section h3 {
+            margin-bottom: 1.5rem;
+            color: #2c3e50;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table th,
+        .table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        .table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .status {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-healthy {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-unhealthy {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: #f8d7da;
+            padding: 1rem;
+            border-radius: 5px;
+            margin-bottom: 1rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #7f8c8d;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🏢 Enterprise Admin Panel</h1>
+    </div>
+
+    <div class="container">
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <h2>Admin Login</h2>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+            </form>
+            <div id="loginError" class="error hidden"></div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard" class="dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="userCount">--</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="productCount">--</div>
+                    <div class="stat-label">Total Products</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="orderCount">--</div>
+                    <div class="stat-label">Total Orders</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="revenue">--</div>
+                    <div class="stat-label">Revenue</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>System Status</h3>
+                <div id="systemStatus">
+                    <div class="loading">Loading system status...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Recent Users</h3>
+                <div id="recentUsers">
+                    <div class="loading">Loading recent users...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Recent Orders</h3>
+                <div id="recentOrders">
+                    <div class="loading">Loading recent orders...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Cache Management</h3>
+                <div id="cacheStatus">
+                    <div class="loading">Loading cache status...</div>
+                </div>
+                <button id="clearCache" class="btn" style="width: auto; margin-top: 1rem;">Clear Cache</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class AdminPanel {
+            constructor() {
+                this.token = localStorage.getItem('admin_token');
+                this.init();
+            }
+
+            init() {
+                if (this.token) {
+                    this.showDashboard();
+                    this.loadDashboardData();
+                } else {
+                    this.showLogin();
+                }
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                document.getElementById('loginFormElement').addEventListener('submit', (e) => this.handleLogin(e));
+                document.getElementById('clearCache').addEventListener('click', () => this.clearCache());
+            }
+
+            showLogin() {
+                document.getElementById('loginForm').style.display = 'block';
+                document.getElementById('dashboard').style.display = 'none';
+            }
+
+            showDashboard() {
+                document.getElementById('loginForm').style.display = 'none';
+                document.getElementById('dashboard').style.display = 'block';
+            }
+
+            async handleLogin(e) {
+                e.preventDefault();
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+
+                try {
+                    const response = await fetch('/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email, password })
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        this.token = data.access_token;
+                        localStorage.setItem('admin_token', this.token);
+                        this.showDashboard();
+                        this.loadDashboardData();
+                    } else {
+                        this.showError(data.error);
+                    }
+                } catch (error) {
+                    this.showError('Login failed: ' + error.message);
+                }
+            }
+
+            async loadDashboardData() {
+                await Promise.all([
+                    this.loadStats(),
+                    this.loadSystemStatus(),
+                    this.loadRecentUsers(),
+                    this.loadRecentOrders(),
+                    this.loadCacheStatus()
+                ]);
+            }
+
+            async loadStats() {
+                try {
+                    const response = await fetch('/dashboard', {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        document.getElementById('userCount').textContent = data.stats.users;
+                        document.getElementById('productCount').textContent = data.stats.products;
+                        document.getElementById('orderCount').textContent = data.stats.orders;
+                        document.getElementById('revenue').textContent = '$' + data.stats.revenue.toFixed(2);
+                    }
+                } catch (error) {
+                    console.error('Failed to load stats:', error);
+                }
+            }
+
+            async loadSystemStatus() {
+                try {
+                    const response = await fetch('/health');
+                    const data = await response.json();
+                    
+                    const statusHtml = `
+                        <div>
+                            <p><strong>Overall Status:</strong> 
+                                <span class="status ${data.status === 'healthy' ? 'status-healthy' : 'status-unhealthy'}">
+                                    ${data.status}
+                                </span>
+                            </p>
+                            <p><strong>Database:</strong> 
+                                <span class="status ${data.services.database === 'healthy' ? 'status-healthy' : 'status-unhealthy'}">
+                                    ${data.services.database}
+                                </span>
+                            </p>
+                            <p><strong>Cache:</strong> 
+                                <span class="status ${data.services.cache === 'healthy' ? 'status-healthy' : 'status-unhealthy'}">
+                                    ${data.services.cache}
+                                </span>
+                            </p>
+                        </div>
+                    `;
+                    
+                    document.getElementById('systemStatus').innerHTML = statusHtml;
+                } catch (error) {
+                    document.getElementById('systemStatus').innerHTML = '<div class="error">Failed to load system status</div>';
+                }
+            }
+
+            async loadRecentUsers() {
+                try {
+                    const response = await fetch('/users', {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const users = await response.json();
+                        const usersHtml = `
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${users.slice(0, 5).map(user => `
+                                        <tr>
+                                            <td>${user.name}</td>
+                                            <td>${user.email}</td>
+                                            <td>${new Date(user.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                        document.getElementById('recentUsers').innerHTML = usersHtml;
+                    }
+                } catch (error) {
+                    document.getElementById('recentUsers').innerHTML = '<div class="error">Failed to load users</div>';
+                }
+            }
+
+            async loadRecentOrders() {
+                try {
+                    const response = await fetch('/orders', {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const orders = await response.json();
+                        const ordersHtml = `
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>User</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Created</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${orders.slice(0, 5).map(order => `
+                                        <tr>
+                                            <td>#${order.id}</td>
+                                            <td>${order.user_name}</td>
+                                            <td>$${order.total.toFixed(2)}</td>
+                                            <td>${order.status}</td>
+                                            <td>${new Date(order.created_at).toLocaleDateString()}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        `;
+                        document.getElementById('recentOrders').innerHTML = ordersHtml;
+                    }
+                } catch (error) {
+                    document.getElementById('recentOrders').innerHTML = '<div class="error">Failed to load orders</div>';
+                }
+            }
+
+            async loadCacheStatus() {
+                try {
+                    const response = await fetch('/cache/status', {
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const cacheHtml = `
+                            <div>
+                                <p><strong>Status:</strong> 
+                                    <span class="status ${data.status === 'connected' ? 'status-healthy' : 'status-unhealthy'}">
+                                        ${data.status}
+                                    </span>
+                                </p>
+                                <p><strong>Database Size:</strong> ${data.db_size}</p>
+                                <p><strong>Memory Usage:</strong> ${data.memory_usage}</p>
+                                <p><strong>Connected Clients:</strong> ${data.connected_clients}</p>
+                            </div>
+                        `;
+                        document.getElementById('cacheStatus').innerHTML = cacheHtml;
+                    }
+                } catch (error) {
+                    document.getElementById('cacheStatus').innerHTML = '<div class="error">Failed to load cache status</div>';
+                }
+            }
+
+            async clearCache() {
+                try {
+                    const response = await fetch('/cache/clear', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${this.token}`
+                        }
+                    });
+
+                    if (response.ok) {
+                        alert('Cache cleared successfully');
+                        this.loadCacheStatus();
+                    } else {
+                        alert('Failed to clear cache');
+                    }
+                } catch (error) {
+                    alert('Failed to clear cache: ' + error.message);
+                }
+            }
+
+            showError(message) {
+                const errorDiv = document.getElementById('loginError');
+                errorDiv.textContent = message;
+                errorDiv.classList.remove('hidden');
+            }
+        }
+
+        // Initialize the admin panel when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new AdminPanel();
+        });
+    </script>
+</body>
+</html>

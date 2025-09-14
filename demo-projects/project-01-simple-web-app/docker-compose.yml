@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: simple-webapp-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - ./logs/nginx:/var/log/nginx
+      - ./src/assets:/var/www/html/assets
+    depends_on:
+      - apache
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  apache:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: simple-webapp-apache
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./src:/var/www/html
+      - ./logs/apache:/var/log/apache2
+    environment:
+      - APACHE_RUN_USER=www-data
+      - APACHE_RUN_GROUP=www-data
+      - APACHE_LOG_DIR=/var/log/apache2
+    depends_on:
+      - mysql
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8.0
+    container_name: simple-webapp-mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./logs/mysql:/var/log/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword123
+      - MYSQL_DATABASE=simple_webapp
+      - MYSQL_USER=webapp_user
+      - MYSQL_PASSWORD=webapp_password123
+    networks:
+      - webapp-network
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: simple-webapp-phpmyadmin
+    ports:
+      - "8081:80"
+    environment:
+      - PMA_HOST=mysql
+      - PMA_USER=root
+      - PMA_PASSWORD=rootpassword123
+    depends_on:
+      - mysql
+    networks:
+      - webapp-network
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  webapp-network:
+    driver: bridge

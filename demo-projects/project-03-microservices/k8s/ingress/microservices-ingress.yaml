@@ -1,0 +1,163 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: microservices-ingress
+  namespace: microservices
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - api.your-domain.com
+    - monitoring.your-domain.com
+    secretName: microservices-tls
+  rules:
+  - host: api.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8000
+  - host: monitoring.your-domain.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: grafana
+            port:
+              number: 3000
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: microservices-gateway
+  namespace: microservices
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - api.your-domain.com
+    - monitoring.your-domain.com
+    tls:
+      httpsRedirect: true
+  - port:
+      number: 443
+      name: https
+      protocol: HTTPS
+    hosts:
+    - api.your-domain.com
+    - monitoring.your-domain.com
+    tls:
+      mode: SIMPLE
+      credentialName: microservices-tls
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: microservices-vs
+  namespace: microservices
+spec:
+  hosts:
+  - api.your-domain.com
+  - monitoring.your-domain.com
+  gateways:
+  - microservices-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /api/users
+    route:
+    - destination:
+        host: user-service
+        port:
+          number: 3000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/products
+    route:
+    - destination:
+        host: product-service
+        port:
+          number: 5000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/orders
+    route:
+    - destination:
+        host: order-service
+        port:
+          number: 5000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/payments
+    route:
+    - destination:
+        host: payment-service
+        port:
+          number: 8080
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/notifications
+    route:
+    - destination:
+        host: notification-service
+        port:
+          number: 3000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /api/analytics
+    route:
+    - destination:
+        host: analytics-service
+        port:
+          number: 8000
+    timeout: 30s
+    retries:
+      attempts: 3
+      perTryTimeout: 10s
+  - match:
+    - uri:
+        prefix: /monitoring
+    route:
+    - destination:
+        host: grafana
+        port:
+          number: 3000
+    timeout: 30s

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Application</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <header class="header">
+        <nav class="navbar">
+            <div class="nav-brand">
+                <h1>🏢 Enterprise Platform</h1>
+            </div>
+            <div class="nav-menu">
+                <a href="/" class="nav-link active">Home</a>
+                <a href="/dashboard" class="nav-link">Dashboard</a>
+                <a href="/admin" class="nav-link">Admin</a>
+                <a href="/api/health" class="nav-link">API Status</a>
+            </div>
+        </nav>
+    </header>
+
+    <main class="main-content">
+        <section class="hero">
+            <div class="hero-content">
+                <h2>Welcome to Enterprise Platform</h2>
+                <p>High-availability, scalable, and secure enterprise application</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number" id="uptime">--</span>
+                        <span class="stat-label">Uptime</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" id="requests">--</span>
+                        <span class="stat-label">Requests</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number" id="response-time">--</span>
+                        <span class="stat-label">Response Time</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <div class="container">
+                <h3>Enterprise Features</h3>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">⚡</div>
+                        <h4>High Performance</h4>
+                        <p>Optimized for speed and scalability with load balancing and caching</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔒</div>
+                        <h4>Secure</h4>
+                        <p>Enterprise-grade security with SSL/TLS encryption and authentication</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h4>Monitoring</h4>
+                        <p>Comprehensive monitoring with Prometheus and Grafana dashboards</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h4>High Availability</h4>
+                        <p>99.9% uptime with automatic failover and disaster recovery</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="api-demo">
+            <div class="container">
+                <h3>API Demo</h3>
+                <div class="api-controls">
+                    <button id="test-api" class="btn btn-primary">Test API Connection</button>
+                    <button id="load-data" class="btn btn-secondary">Load Sample Data</button>
+                </div>
+                <div id="api-response" class="api-response"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 Enterprise Platform. Built with enterprise-grade architecture.</p>
+            <div class="footer-links">
+                <a href="/api/health">API Health</a>
+                <a href="/metrics">Metrics</a>
+                <a href="/docs">Documentation</a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/js/main.js"></script>
+</body>
+</html>
