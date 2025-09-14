@@ -434,7 +434,8 @@ complete_wordpress_setup() {
         --admin_user="$WP_ADMIN_USER" \
         --admin_password="$WP_ADMIN_PASS" \
         --admin_email="$WP_ADMIN_EMAIL" \
-        --skip-email
+        --skip-email \
+        --allow-root
     
     print_status "WordPress setup completed"
 }
